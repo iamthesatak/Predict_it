@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predict It - Disaster Prediction & Locality Mitigation Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Live Alert Ticker -->
+        <div class="alert-ticker">
+            <div class="ticker-label"><i class="fa-solid fa-triangle-exclamation pulse"></i> LIVE ALERTS:</div>
+            <div class="ticker-wrap">
+                <div class="ticker-content">
+                    ⚠️ Cyclone Alert: Category 4 Cyclone landfall expected on Odisha Coast (Paradip) within 10 hours. Storm surges up to 3.8m. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    ⚠️ Landslide Warning: Heavy monsoon rain triggering active slope slips in Uttarakhand (Garhwal Region). &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    ⚠️ Flood Alert: Ganges river gauge height exceeding warning level in Bihar river plains.
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Header -->
+        <header class="main-header">
+            <div class="logo">
+                <i class="fa-solid fa-shield-halved brand-icon"></i>
+                <div class="logo-text">
+                    <h1>Predict It</h1>
+                    <span class="tagline">Citizen Disaster Prediction & Solution Hub</span>
+                </div>
+            </div>
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="locality-search" placeholder="Search your locality (e.g., Coastal, Hilly, Metro)..." autocomplete="off">
+                <div id="search-suggestions" class="search-suggestions hidden"></div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="btn-report-hazard">
+                    <i class="fa-solid fa-circle-radiation"></i> Report Local Hazard
+                </button>
+                <div class="system-time">
+                    <span id="live-time">00:00:00</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Application Body Grid -->
+        <main class="app-body">
+            <!-- Left Panel: Navigation & Crowd Intelligence -->
+            <aside class="panel left-panel">
+                <div class="panel-section">
+                    <h2><i class="fa-solid fa-earth-americas"></i> Risk Dashboard</h2>
+                    <p class="panel-desc">Select a vulnerability zone on the map or search to view hazard predictions, evacuation routes, and solutions.</p>
+                    
+                    <div class="status-summary-grid">
+                        <div class="summary-card active-threats">
+                            <span class="value" id="count-active">3</span>
+                            <span class="label">Active Threats</span>
+                        </div>
+                        <div class="summary-card citizen-reports">
+                            <span class="value" id="count-reports">4</span>
+                            <span class="label">Citizen Alerts</span>
+                        </div>
+                        <div class="summary-card safe-zones">
+                            <span class="value" id="count-safe">2</span>
+                            <span class="label">Safe Shelters</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section scrollable">
+                    <div class="section-title-container">
+                        <h3><i class="fa-solid fa-list-check"></i> High-Risk Localities</h3>
+                    </div>
+                    <div class="locality-list" id="localities-container">
+                        <!-- Filled dynamically by app.js -->
+                    </div>
+                </div>
+
+                <div class="panel-section scrollable flex-grow">
+                    <div class="section-title-container">
+                        <h3><i class="fa-solid fa-users"></i> Citizen Crowd-Predictions</h3>
+                        <span class="badge badge-beta">Live Feed</span>
+                    </div>
+                    <div class="community-reports" id="community-reports-container">
+                        <!-- Filled dynamically by app.js -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel: The Leaflet Map -->
+            <section class="map-section">
+                <div class="map-wrapper">
+                    <div id="map"></div>
+                    <div class="map-overlay-legend">
+                        <h4>Map Legend</h4>
+                        <div class="legend-item"><span class="legend-color alert-critical"></span> Critical Threat Zone</div>
+                        <div class="legend-item"><span class="legend-color alert-warning"></span> Active Warning Zone</div>
+                        <div class="legend-item"><span class="legend-color alert-advisory"></span> Advisory Zone</div>
+                        <div class="legend-item"><span class="legend-color user-alert"></span> Citizen Report</div>
+                        <div class="legend-item"><span class="legend-color shelter-node"></span> Safe Evacuation Shelter</div>
+                    </div>
+                    <!-- Map Layer Filters -->
+                    <div class="map-overlay-filters">
+                        <h4><i class="fa-solid fa-filter"></i> Map Layers</h4>
+                        <div class="filter-item">
+                            <input type="checkbox" id="filter-official" checked>
+                            <label for="filter-official">Official Zones</label>
+                        </div>
+                        <div class="filter-item">
+                            <input type="checkbox" id="filter-shelters" checked>
+                            <label for="filter-shelters">Safe Shelters</label>
+                        </div>
+                        <div class="filter-item">
+                            <input type="checkbox" id="filter-citizen" checked>
+                            <label for="filter-citizen">Citizen Reports</label>
+                        </div>
+                    </div>
+                    <!-- Collapsible Side Panels Toggles -->
+                    <button id="toggle-left-panel" class="map-floating-toggle left-toggle" title="Toggle Left Panel">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button id="toggle-right-panel" class="map-floating-toggle right-toggle" title="Toggle Right Panel">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <!-- Prompt instructing how to report -->
+                    <div id="report-instruction" class="map-prompt hidden">
+                        <i class="fa-solid fa-location-crosshairs fa-spin"></i> Click anywhere on the map to pin a hazard prediction
+                        <button class="btn btn-sm btn-secondary" id="btn-cancel-report">Cancel</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Locality Intelligence (Dynamic on selection) -->
+            <aside class="panel right-panel" id="locality-details-panel">
+                <!-- Welcome/Instructional State -->
+                <div class="welcome-state" id="panel-welcome-state">
+                    <div class="welcome-scroll-container">
+                        <div class="welcome-content">
+                            <i class="fa-solid fa-shield-halved welcome-icon"></i>
+                            <h3>Predict It - Prep Center</h3>
+                            <p>Select a locality card or map region to load hazard plans, or test your preparedness below.</p>
+                        </div>
+                        
+                        <div class="prep-tabs">
+                            <button class="prep-tab-btn active" data-prep-tab="quiz-tab"><i class="fa-solid fa-graduation-cap"></i> Crisis Quiz</button>
+                            <button class="prep-tab-btn" data-prep-tab="guide-tab"><i class="fa-solid fa-book-open"></i> Quick Guides</button>
+                        </div>
+
+                        <div class="prep-tab-content">
+                            <!-- Quiz Tab -->
+                            <div class="prep-tab-panel active" id="quiz-tab">
+                                <div id="quiz-intro">
+                                    <h5>Are you prepared for a disaster?</h5>
+                                    <p>Test your knowledge on immediate survival actions and local mitigation strategies.</p>
+                                    <button class="btn btn-primary btn-sm" id="btn-start-quiz">Start Survival Quiz</button>
+                                </div>
+                                <div id="quiz-question-box" class="hidden">
+                                    <div class="quiz-progress">
+                                        <span id="quiz-progress-text">Question 1 of 5</span>
+                                        <span id="quiz-score-badge" class="badge badge-beta">Score: 0</span>
+                                    </div>
+                                    <h4 id="quiz-question">Question Text</h4>
+                                    <div id="quiz-options" class="quiz-options-grid"></div>
+                                    <div id="quiz-feedback" class="quiz-feedback-box hidden">
+                                        <p id="quiz-feedback-text">Feedback</p>
+                                        <button class="btn btn-secondary btn-sm" id="btn-next-question">Next Question</button>
+                                    </div>
+                                </div>
+                                <div id="quiz-results" class="hidden">
+                                    <h4>Quiz Completed!</h4>
+                                    <p id="quiz-final-score">Your score: 4/5</p>
+                                    <div class="rank-card">
+                                        <span class="rank-label">Preparedness Rank:</span>
+                                        <span id="quiz-rank-value" class="badge">Rookie</span>
+                                    </div>
+                                    <p id="quiz-rank-desc" class="rank-desc">Need to study local guides.</p>
+                                    <button class="btn btn-primary btn-sm" id="btn-restart-quiz">Retry Quiz</button>
+                                </div>
+                            </div>
+
+                            <!-- Guides Tab -->
+                            <div class="prep-tab-panel" id="guide-tab">
+                                <div class="guide-collapsible-container">
+                                    <div class="guide-item active">
+                                        <div class="guide-title"><i class="fa-solid fa-droplet text-advisory"></i> Flash Floods & Water Logging</div>
+                                        <div class="guide-desc">
+                                            <ul>
+                                                <li><strong>Before:</strong> Move electronics and cargo to upper floors. Store clean water.</li>
+                                                <li><strong>During:</strong> Avoid wading or driving through flood currents (as little as 6 inches can knock you off balance). Seek high ground.</li>
+                                                <li><strong>After:</strong> Avoid contact with electrical wiring. Disinfect flooded surfaces and boil drinking water.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="guide-item">
+                                        <div class="guide-title"><i class="fa-solid fa-mountain text-warning"></i> Landslides & Mud Creeps</div>
+                                        <div class="guide-desc">
+                                            <ul>
+                                                <li><strong>Before:</strong> Inspect slopes for structural cracks, tilting fences, or saturated spots. Prepare a go-bag.</li>
+                                                <li><strong>During:</strong> If mudflow is imminent, evacuate laterally to a flat plateau. Listen for rumbling sounds.</li>
+                                                <li><strong>After:</strong> Stay away from slide zones. Secondary slips are highly common after the initial landslide.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="guide-item">
+                                        <div class="guide-title"><i class="fa-solid fa-wind text-critical"></i> Cyclones & Severe Winds</div>
+                                        <div class="guide-desc">
+                                            <ul>
+                                                <li><strong>Before:</strong> Tape glass windows in a criss-cross pattern. Secure loose tin roofs or outdoor tools.</li>
+                                                <li><strong>During:</strong> Unplug power connections. Do not venture out during wind lulls, as the eye is followed by severe counterwinds.</li>
+                                                <li><strong>After:</strong> Stay inside until local authorities declare a safe state. Check for water contamination.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="guide-item">
+                                        <div class="guide-title"><i class="fa-solid fa-sun text-warning"></i> Extreme Heat & Sandstorms</div>
+                                        <div class="guide-desc">
+                                            <ul>
+                                                <li><strong>Before:</strong> Keep thick curtains closed to insulate rooms. Seal water storage tanks from sand.</li>
+                                                <li><strong>During:</strong> Stay indoors. Drink saline water (ORS) hourly. Protect animals from direct heat.</li>
+                                                <li><strong>After:</strong> Inspect solar panels and clean accumulated sand dust to restore energy flow.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Details State (Hidden initially) -->
+                <div class="details-state hidden" id="panel-details-state">
+                    <!-- Locality Header -->
+                    <div class="locality-details-header">
+                        <div class="locality-meta">
+                            <span class="badge" id="detail-severity-badge">CRITICAL</span>
+                            <span class="locality-type" id="detail-terrain-type">Coastal Region</span>
+                        </div>
+                        <h2 id="detail-name">Coastal Plain Sector 4</h2>
+                        <p class="source-stamp"><i class="fa-solid fa-circle-check"></i> Verified prediction by <span id="detail-source">National Meteorological Dept.</span></p>
+                    </div>
+
+                    <!-- Navigation Tabs for Details -->
+                    <nav class="details-tabs">
+                        <button class="tab-btn active" data-tab="tab-threat"><i class="fa-solid fa-triangle-exclamation"></i> Threat Details</button>
+                        <button class="tab-btn" data-tab="tab-evac"><i class="fa-solid fa-route"></i> Evacuation</button>
+                        <button class="tab-btn" data-tab="tab-tackle"><i class="fa-solid fa-toolbox"></i> Tackle Guide</button>
+                        <button class="tab-btn" data-tab="tab-contacts"><i class="fa-solid fa-phone-volume"></i> Help & Shelter</button>
+                    </nav>
+
+                    <div class="tab-content-container">
+                        <!-- Tab 1: Threat Details & Simulation -->
+                        <div class="tab-panel active" id="tab-threat">
+                            <div class="threat-summary-card">
+                                <div class="threat-title-row">
+                                    <h4 id="detail-threat-title">Severe Coastal Inundation & Storm Surge</h4>
+                                    <span class="threat-timer" id="detail-threat-eta"><i class="fa-regular fa-clock"></i> ETA: 12 Hours</span>
+                                </div>
+                                <p id="detail-threat-desc">A Category 3 cyclone landfall will trigger storm surges between 3-4 meters, causing widespread flooding of low-lying sub-sectors.</p>
+                            </div>
+
+                            <!-- Live Mock Sensors -->
+                            <div class="sensor-card">
+                                <h5><i class="fa-solid fa-gauge-high"></i> Live Locality Sensor telemetry</h5>
+                                <div class="chart-container">
+                                    <canvas id="sensorChart"></canvas>
+                                </div>
+                                <div class="sensor-stats">
+                                    <div class="stat-node">
+                                        <span class="stat-lbl" id="sensor-param-1-name">Wind Speed</span>
+                                        <span class="stat-val" id="sensor-param-1-val">115 km/h</span>
+                                    </div>
+                                    <div class="stat-node">
+                                        <span class="stat-lbl" id="sensor-param-2-name">Water Level</span>
+                                        <span class="stat-val warning" id="sensor-param-2-val">3.8 meters</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Evacuation Plan (Advantage & Disadvantage Aware) -->
+                        <div class="tab-panel" id="tab-evac">
+                            <div class="evac-route-summary">
+                                <h4><i class="fa-solid fa-person-running"></i> Recommended Evacuation Strategy</h4>
+                                <p id="detail-evac-strategy">All residents must evacuate inland. Follow the marked Highway 7 North route. Avoid lower sea dyke paths.</p>
+                            </div>
+
+                            <!-- Geo Advantages and Disadvantages -->
+                            <div class="geo-analysis-grid">
+                                <div class="geo-card advantage">
+                                    <h5><i class="fa-solid fa-shield-heart"></i> Geographical Advantages</h5>
+                                    <ul id="detail-geo-advantages">
+                                        <li>High-elevation concrete multipurpose cyclone shelter located 2km inland.</li>
+                                        <li>Natural mangrove barrier mitigates direct wave energy on coastal houses.</li>
+                                    </ul>
+                                </div>
+                                <div class="geo-card disadvantage">
+                                    <h5><i class="fa-solid fa-circle-exclamation"></i> Geographical Disadvantages</h5>
+                                    <ul id="detail-geo-disadvantages">
+                                        <li>Low-lying delta terrain causes rapid water accumulation with slow drainage.</li>
+                                        <li>Only a single multi-lane connector road (Route 7) is available for heavy vehicle evacuation.</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Evacuation Checklist -->
+                            <div class="evac-steps">
+                                <h5>Step-by-Step Execution Plan</h5>
+                                <ol id="detail-evac-steps">
+                                    <li>Secure window panes using plywood shutters.</li>
+                                    <li>Shut off central power supply line and cooking gas mains.</li>
+                                    <li>Proceed along Elevated Road Northwards to District Safe Shelter.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Instant Tackle Guide -->
+                        <div class="tab-panel" id="tab-tackle">
+                            <div class="tackle-header-desc">
+                                <p>Follow these instant actions structured by urgency level to protect yourself and your family.</p>
+                            </div>
+
+                            <div class="tackle-checklist-container">
+                                <!-- BEFORE -->
+                                <div class="checklist-section">
+                                    <span class="check-title before"><i class="fa-solid fa-shield-halved"></i> PHASE 1: Immediate Preparedness (Before)</span>
+                                    <ul class="checklist-items" id="checklist-before">
+                                        <!-- Checked dynamically -->
+                                    </ul>
+                                </div>
+                                <!-- DURING -->
+                                <div class="checklist-section">
+                                    <span class="check-title during"><i class="fa-solid fa-person-shelter"></i> PHASE 2: Live Crisis Measures (During)</span>
+                                    <ul class="checklist-items" id="checklist-during">
+                                        <!-- Checked dynamically -->
+                                    </ul>
+                                </div>
+                                <!-- AFTER -->
+                                <div class="checklist-section">
+                                    <span class="check-title after"><i class="fa-solid fa-hand-holding-hand"></i> PHASE 3: Safety & Relief (After)</span>
+                                    <ul class="checklist-items" id="checklist-after">
+                                        <!-- Checked dynamically -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 4: Relief and Shelter Contacts -->
+                        <div class="tab-panel" id="tab-contacts">
+                            <!-- Official government contacts -->
+                            <div class="contacts-list-wrapper">
+                                <h4><i class="fa-solid fa-users-gear"></i> Official Response & Relief Directory</h4>
+                                <div class="contacts-grid" id="detail-contacts">
+                                    <!-- Filled dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Shelter Node Info -->
+                            <div class="shelter-info-card">
+                                <h5><i class="fa-solid fa-hotel"></i> Primary Local Relief Shelter</h5>
+                                <div class="shelter-details">
+                                    <p class="shelter-name" id="detail-shelter-name">Sector 4 Community Multi-purpose High Shelter</p>
+                                    <p class="shelter-address" id="detail-shelter-address"><i class="fa-solid fa-location-dot"></i> Near North Elevated Ridge highway crossing</p>
+                                    <div class="shelter-metrics">
+                                        <div class="metric">
+                                            <span class="label">Capacity</span>
+                                            <span class="value" id="detail-shelter-capacity">1,200 people</span>
+                                        </div>
+                                        <div class="metric">
+                                            <span class="label">Food/Medical Supply</span>
+                                            <span class="value status-good" id="detail-shelter-supplies"><i class="fa-solid fa-circle-check"></i> Stocked</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-secondary btn-block" id="btn-show-shelter"><i class="fa-solid fa-map-pin"></i> Highlight Shelter on Map</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Community Report Modal -->
+    <div class="modal-overlay hidden" id="report-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-radiation text-warning"></i> File Citizen Hazard Prediction</h3>
+                <button class="btn-close" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="hazard-report-form">
+                    <div class="form-row split">
+                        <div class="form-group">
+                            <label for="report-lat">Latitude</label>
+                            <input type="text" id="report-lat" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="report-lng">Longitude</label>
+                            <input type="text" id="report-lng" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-locality">Locality / Neighborhood Name</label>
+                        <input type="text" id="report-locality" placeholder="e.g., South-eastern Hill Slope, Riverside Blocks" required>
+                    </div>
+                    <div class="form-row split">
+                        <div class="form-group">
+                            <label for="report-hazard-type">Hazard/Disaster Type</label>
+                            <select id="report-hazard-type" required>
+                                <option value="flood">Flash Flood / Water Logging</option>
+                                <option value="landslide">Landslide / Mudflow</option>
+                                <option value="wildfire">Forest Fire / Wildfire</option>
+                                <option value="seismic">Seismic Vibration / Crack</option>
+                                <option value="storm">Severe Local Wind / Storm</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="report-severity">Observed Severity</label>
+                            <select id="report-severity" required>
+                                <option value="warning" class="text-warning">Warning (Medium risk)</option>
+                                <option value="critical" class="text-critical">Critical (High immediate threat)</option>
+                                <option value="advisory" class="text-advisory">Advisory (Precautionary watch)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-desc">Your Prediction / Observed Anomalies</label>
+                        <textarea id="report-desc" rows="3" placeholder="Describe the physical indicators (e.g., water rising by 10cm/hr, deep cracks in building foundations, heavy smoking bushes...)" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-solution">Proposed Immediate Local Action</label>
+                        <textarea id="report-solution" rows="2" placeholder="e.g., Evacuate towards the community hall on the hill, clear drainage outlets..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="btn-modal-cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Broadcast Prediction</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
